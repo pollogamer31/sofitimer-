@@ -176,6 +176,29 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .bub span.go { transform: scale(1.6); opacity: 0; }
 @keyframes rise { to { transform: translateY(-400px); } }
 
+/* Gioco di riordino: tocchi due libri per scambiarli. */
+.organize-game { min-height: 160px; padding: 12px 8px 8px; border: 1.5px solid var(--line); border-radius: 20px; background: var(--bg); }
+.shelf { display: flex; align-items: flex-end; gap: 7px; min-height: 110px; padding: 10px 7px 5px; border-bottom: 5px solid var(--muted); }
+.book { flex: 1 1 0; min-width: 0; border: 1.5px solid var(--btn-edge); border-radius: 8px 8px 2px 2px; background: var(--book, var(--orb2)); color: var(--btn-fg); cursor: pointer; font-family: var(--display); font-weight: 700; }
+.book.selected { outline: 3px solid var(--accent); outline-offset: 3px; }
+.organize-msg { min-height: 1.5em; margin: 10px 4px 0; text-align: center; color: var(--muted); font-weight: 600; }
+.game-tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+.game-panel { margin-top: 2px; }
+.snake-wrap { border: 1.5px solid var(--line); border-radius: 20px; overflow: hidden; background: var(--bg); text-align: center; }
+#snakeCanvas { display: block; width: 100%; max-width: 300px; aspect-ratio: 1; margin: 0 auto; background: #FFEAF2; touch-action: none; }
+.snake-controls { display: grid; grid-template-columns: repeat(3, 44px); justify-content: center; gap: 5px; margin: 10px 0; }
+.snake-controls button { border: 1.5px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--fg); cursor: pointer; min-height: 38px; font-weight: 700; }
+.snake-controls .up { grid-column: 2; }.snake-controls .left { grid-column: 1; grid-row: 2; }.snake-controls .down { grid-column: 2; grid-row: 2; }.snake-controls .right { grid-column: 3; grid-row: 2; }
+.coloring { padding: 12px; border: 1.5px solid var(--line); border-radius: 20px; background: var(--bg); text-align: center; }
+.palette { display: flex; justify-content: center; flex-wrap: wrap; gap: 9px; margin: 9px 0 4px; }
+.paint { width: 35px; height: 35px; padding: 0; border: 3px solid var(--surface); border-radius: 50%; background: var(--paint); cursor: pointer; box-shadow: 0 0 0 1px var(--line); }
+.paint[aria-pressed="true"] { outline: 3px solid var(--accent); outline-offset: 3px; }
+.coloring svg { display: block; max-width: 270px; margin: 0 auto; }
+.coloring .paintable { fill: var(--surface); stroke: var(--muted); stroke-width: 3; cursor: pointer; transition: fill .2s ease; }
+.jar { min-height: 185px; padding: 18px; border: 1.5px solid var(--line); border-radius: 20px; background: var(--bg); display: grid; place-items: center; text-align: center; }
+.jar-icon { font-size: 62px; line-height: 1; filter: drop-shadow(0 8px 10px var(--glow)); }
+.jar-message { min-height: 2.7em; max-width: 28ch; font-family: var(--display); font-size: 19px; font-weight: 600; }
+
 /* Consigli */
 .tips { display: flex; flex-direction: column; gap: 14px; }
 .tip-card {
@@ -263,6 +286,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
   </section>
 
   <section id="run" class="stack" style="gap:20px" hidden>
+    <p class="hello" id="timerLove" style="margin:0 auto;text-align:center">Ti voglio bene, Sofi. Sono qui con te.</p>
     <div class="clock" id="clock" aria-label="Tempo rimasto">20:00</div>
     <div class="breath" aria-hidden="true">
       <div class="ring"></div>
@@ -282,12 +306,58 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
         <button class="chip" type="button" data-snd="pioggia" aria-pressed="false">Pioggia</button>
         <button class="chip" type="button" data-snd="onde" aria-pressed="false">Onde</button>
         <button class="chip" type="button" data-snd="bianco" aria-pressed="false">Rumore bianco</button>
+        <button class="chip" type="button" id="soundTest">Prova audio</button>
       </div>
     </div>
     <div class="tip-card">
-      <h2>Scoppia le bolle</h2>
-      <div><button class="ghost" id="playBtn" type="button">Gioca</button></div>
-      <div class="game" id="game" hidden></div>
+      <h2>Giochi</h2>
+      <p class="small">Scegline uno, senza punteggi da raggiungere.</p>
+      <div class="game-tabs">
+        <button class="ghost" id="playBtn" type="button">Bolle</button>
+        <button class="ghost" id="organizeBtn" type="button">Metti in ordine</button>
+        <button class="ghost" id="snakeBtn" type="button">Snake</button>
+        <button class="ghost" id="colorBtn" type="button">Colora</button>
+        <button class="ghost" id="jarBtn" type="button">Barattolo</button>
+      </div>
+      <div class="game-panel game" id="game" hidden></div>
+      <div class="game-panel organize-game" id="organizeGame" hidden>
+        <p class="small">Metti i libri dal più basso al più alto. Tocca due libri per scambiarli.</p>
+        <div class="shelf" id="shelf" aria-label="Libri da mettere in ordine"></div>
+        <p class="organize-msg" id="organizeMsg" aria-live="polite"></p>
+      </div>
+      <div class="game-panel snake-wrap" id="snakeGame" hidden>
+        <canvas id="snakeCanvas" width="300" height="300" aria-label="Gioco Snake"></canvas>
+        <p class="small" id="snakeMsg" aria-live="polite">Raccogli le fragole. Usa le frecce o i pulsanti.</p>
+        <div class="snake-controls" aria-label="Comandi Snake">
+          <button class="up" type="button" data-dir="up">↑</button><button class="left" type="button" data-dir="left">←</button><button class="down" type="button" data-dir="down">↓</button><button class="right" type="button" data-dir="right">→</button>
+        </div>
+      </div>
+      <div class="game-panel coloring" id="colorGame" hidden>
+        <p class="small">Scegli un colore e tocca i petali.</p>
+        <div class="palette" role="group" aria-label="Colori">
+          <button class="paint" type="button" data-paint="#FF8FB5" style="--paint:#FF8FB5" aria-label="Rosa" aria-pressed="true"></button>
+          <button class="paint" type="button" data-paint="#FFC857" style="--paint:#FFC857" aria-label="Giallo" aria-pressed="false"></button>
+          <button class="paint" type="button" data-paint="#A9D8DE" style="--paint:#A9D8DE" aria-label="Azzurro" aria-pressed="false"></button>
+          <button class="paint" type="button" data-paint="#B7D99B" style="--paint:#B7D99B" aria-label="Verde" aria-pressed="false"></button>
+          <button class="paint" type="button" data-paint="#CDB8E8" style="--paint:#CDB8E8" aria-label="Lilla" aria-pressed="false"></button>
+        </div>
+        <svg viewBox="0 0 260 250" role="img" aria-label="Un fiore da colorare">
+          <path class="paintable" d="M130 113C86 101 75 55 101 34c28-22 56 13 29 79z"/>
+          <path class="paintable" d="M139 114c9-44 55-53 76-26 23 30-13 56-76 26z"/>
+          <path class="paintable" d="M144 126c39-24 76 6 63 39-15 37-53 18-63-39z"/>
+          <path class="paintable" d="M131 137c30 34 4 76-31 70-40-7-27-50 31-70z"/>
+          <path class="paintable" d="M117 130c-43 12-69-26-51-57 21-35 57-10 51 57z"/>
+          <circle class="paintable" cx="130" cy="125" r="25"/>
+          <path class="paintable" d="M129 150c-7 30-8 51-7 76"/>
+          <path class="paintable" d="M124 194c-27-20-44-7-33 9 10 14 29 7 33-9z"/>
+          <path class="paintable" d="M125 179c23-21 42-9 34 8-8 15-28 9-34-8z"/>
+        </svg>
+      </div>
+      <div class="game-panel jar" id="jarGame" hidden>
+        <div class="jar-icon" aria-hidden="true">🫙</div>
+        <p class="jar-message" id="jarMessage">Apri il barattolo quando vuoi una parola gentile.</p>
+        <button class="solid" id="openJar" type="button">Apri un bigliettino</button>
+      </div>
     </div>
     <p class="small trust">Se non ti senti ancora bene, scrivi a qualcuno di cui ti fidi.</p>
     <button class="ghost" id="stop" type="button">Ho finito, torno indietro</button>
@@ -332,7 +402,13 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
     'Leggi qualche pagina di un libro.',
     'Fai stretching molto leggero, senza fretta.',
     'Prepara una tisana calda e bevila piano.',
-    'Rifai la playlist che ti piace di più.'
+    'Rifai la playlist che ti piace di più.',
+    'Fai una foto a qualcosa di bello che vedi dalla finestra.',
+    'Prova a piegare dei vestiti o sistemare solo un ripiano.',
+    'Guarda le foto di un momento che ti ha fatto sorridere.',
+    'Fai una lista di film o serie che vuoi vedere.',
+    'Cerca una ricetta solo perché ha una foto bella, senza doverla fare.',
+    'Gioca a mettere in ordine i libri qui sotto.'
   ];
   // Una frase ogni tre minuti. Le prime quattro valgono anche per i 10 minuti in più.
   var CHEERS = [
@@ -343,6 +419,13 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
     'Più di metà. Brava.',
     'Quasi finito, Sofi.',
     'Ancora due minuti e hai fatto.'
+  ];
+  var TIMER_LOVES = [
+    'Ti voglio bene, Sofi. Sono qui con te.',
+    'Sei importante, anche in questo momento.',
+    'Non sei un peso. Meriti cura e calma.',
+    'Una cosa alla volta, io faccio il tifo per te.',
+    'Non devi fare tutto perfettamente. Ti voglio bene lo stesso.'
   ];
   var HELLOS = [
     'Ciao Sofi, ci sei già dentro. Stai andando bene.',
@@ -356,11 +439,14 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
   var $ = function (id) { return document.getElementById(id); };
   var home = $('home'), run = $('run'), done = $('done');
   var orb = $('orb'), phaseEl = $('phase'), clock = $('clock'), ideaEl = $('idea'), ideaLabel = $('ideaLabel');
-  var cheerEl = $('cheer'), helloEl = $('hello');
+  var cheerEl = $('cheer'), helloEl = $('hello'), timerLoveEl = $('timerLove');
   var startAt = 0, endAt = 0, timer = null, phase = '', lastIdea = '', lastCheer = -1, lock = null;
   var mine = [];
 
   helloEl.textContent = HELLOS[Math.floor(Math.random() * HELLOS.length)];
+  // Dopo il timer: prima le cose belle, poi le due schede di consigli.
+  var tipsEl = home.querySelector('.tips');
+  tipsEl.insertBefore($('mine').parentNode, tipsEl.firstChild);
 
   function show(v) {
     home.hidden = v !== home; run.hidden = v !== run; done.hidden = v !== done;
@@ -506,6 +592,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
       if (sndKind === k) { stopSound(); } else { playSound(k); }
     });
   }
+  $('soundTest').addEventListener('click', function () { popBubbleSound(); });
 
   // Gioco delle bolle: niente punteggio, solo scoppiare.
   var game = $('game'), playBtn = $('playBtn'), gameTimer = null;
@@ -515,8 +602,24 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
   function popBub(b) {
     if (b._p) return;
     b._p = true;
+    popBubbleSound();
     b.firstChild.classList.add('go');
     setTimeout(function () { removeBub(b); }, 260);
+  }
+  function popBubbleSound() {
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      if (!ac) ac = new AC();
+      if (ac.state === 'suspended') ac.resume();
+      var len = Math.floor(ac.sampleRate * 0.16), buffer = ac.createBuffer(1, len, ac.sampleRate);
+      var data = buffer.getChannelData(0);
+      for (var i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
+      var src = ac.createBufferSource(), hp = ac.createBiquadFilter(), g = ac.createGain();
+      src.buffer = buffer; hp.type = 'highpass'; hp.frequency.value = 700;
+      g.gain.setValueAtTime(0.28, ac.currentTime); g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.16);
+      src.connect(hp); hp.connect(g); g.connect(ac.destination); src.start();
+    } catch (e) {}
   }
   function spawn() {
     if (game.hidden || game.children.length > 12) return;
@@ -543,8 +646,12 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
     game.appendChild(b);
   }
   function openGame() {
+    organizeGame.hidden = true;
+    organizeBtn.textContent = 'Metti in ordine';
+    stopSnake();
+    closeExtraGames();
     game.hidden = false;
-    playBtn.textContent = 'Chiudi il gioco';
+    playBtn.textContent = 'Chiudi bolle';
     spawn();
     gameTimer = setInterval(spawn, 650);
   }
@@ -553,9 +660,151 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
     gameTimer = null;
     game.hidden = true;
     game.textContent = '';
-    playBtn.textContent = 'Gioca';
+    playBtn.textContent = 'Bolle';
   }
   playBtn.addEventListener('click', function () { if (game.hidden) { openGame(); } else { closeGame(); } });
+
+  var organizeGame = $('organizeGame'), organizeBtn = $('organizeBtn'), shelf = $('shelf'), organizeMsg = $('organizeMsg');
+  var books = [], pickedBook = null, orderLevel = 0, orderRestartTimer = null;
+  var bookHeights = [36, 48, 60, 72, 84, 96, 108];
+  var bookColors = ['#FFB3CD', '#F4CD83', '#BCD9A4', '#A8D8DE', '#CCB6E8'];
+  function shuffledBooks() {
+    for (var i = books.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1)), t = books[i]; books[i] = books[j]; books[j] = t;
+    }
+  }
+  function renderBooks() {
+    shelf.textContent = '';
+    for (var i = 0; i < books.length; i++) {
+      (function (height, index) {
+        var b = document.createElement('button');
+        b.type = 'button'; b.className = 'book'; b.style.height = height + 'px';
+        b.style.setProperty('--book', bookColors[index % bookColors.length]); b.textContent = '▥';
+        b.setAttribute('aria-label', 'Libro alto ' + height);
+        b.addEventListener('click', function () { pickBook(b, height); });
+        shelf.appendChild(b);
+      })(books[i], i);
+    }
+  }
+  function pickBook(button, height) {
+    if (!pickedBook) {
+      pickedBook = { button: button, height: height };
+      button.classList.add('selected'); organizeMsg.textContent = 'Ora tocca un altro libro per scambiarli.'; return;
+    }
+    if (pickedBook.button === button) { button.classList.remove('selected'); pickedBook = null; return; }
+    var a = books.indexOf(pickedBook.height), b = books.indexOf(height), t = books[a]; books[a] = books[b]; books[b] = t;
+    pickedBook = null; renderBooks();
+    var ordered = books.every(function (v, i) { return i === 0 || books[i - 1] <= v; });
+    if (ordered) {
+      var nextLevel = orderLevel < 3 ? orderLevel + 2 : 1;
+      organizeMsg.textContent = 'Bravissima! ✨ Tra poco parte il livello ' + nextLevel + '.';
+      clearTimeout(orderRestartTimer);
+      orderRestartTimer = setTimeout(function () {
+        if (organizeGame.hidden) return;
+        orderLevel = orderLevel < 3 ? orderLevel + 1 : 0;
+        startOrderLevel(false);
+      }, 1500);
+    } else organizeMsg.textContent = 'Ci sei quasi: dal più basso al più alto.';
+  }
+  function startOrderLevel(reset) {
+    clearTimeout(orderRestartTimer);
+    if (reset) orderLevel = 0;
+    books = bookHeights.slice(0, 4 + orderLevel);
+    shuffledBooks(); pickedBook = null; renderBooks();
+    organizeMsg.textContent = 'Livello ' + (orderLevel + 1) + ': metti in ordine ' + books.length + ' libri.';
+  }
+  function openOrganize() {
+    if (organizeGame.hidden) {
+      closeGame(); stopSnake(); closeExtraGames();
+      startOrderLevel(true);
+      organizeGame.hidden = false; organizeBtn.textContent = 'Chiudi ordine';
+    } else { clearTimeout(orderRestartTimer); organizeGame.hidden = true; organizeBtn.textContent = 'Metti in ordine'; }
+  }
+  organizeBtn.addEventListener('click', openOrganize);
+
+  // Snake semplice e lento: raccoglie cuori, senza punteggio o pressione.
+  var snakeBtn = $('snakeBtn'), snakeGame = $('snakeGame'), snakeCanvas = $('snakeCanvas');
+  var snakeCtx = snakeCanvas.getContext('2d'), snakeTimer = null, snake = [], apple = null, foodIndex = 0, snakeDir = { x: 1, y: 0 }, nextDir = { x: 1, y: 0 };
+  var foods = ['🍓', '🍒', '🍎', '🍪'];
+  function newApple() {
+    do { apple = { x: Math.floor(Math.random() * 15), y: Math.floor(Math.random() * 15) }; }
+    while (snake.some(function (p) { return p.x === apple.x && p.y === apple.y; }));
+  }
+  function drawSnake() {
+    var cell = 20; snakeCtx.clearRect(0, 0, 300, 300);
+    snakeCtx.fillStyle = '#FFEAF2'; snakeCtx.fillRect(0, 0, 300, 300);
+    snakeCtx.fillStyle = '#F7D4E2';
+    for (var i = 0; i < 15; i++) for (var j = 0; j < 15; j++) if ((i + j) % 2) snakeCtx.fillRect(i * cell, j * cell, cell, cell);
+    snakeCtx.fillStyle = '#FFFFFF'; snakeCtx.beginPath(); snakeCtx.arc(apple.x * cell + 10, apple.y * cell + 10, 9, 0, Math.PI * 2); snakeCtx.fill();
+    snakeCtx.font = '19px system-ui'; snakeCtx.textAlign = 'center'; snakeCtx.textBaseline = 'middle'; snakeCtx.fillText(foods[foodIndex], apple.x * cell + 10, apple.y * cell + 11);
+    snake.forEach(function (p, i) { snakeCtx.fillStyle = i ? '#E5497F' : '#C72A63'; snakeCtx.fillRect(p.x * cell + 2, p.y * cell + 2, 16, 16); });
+  }
+  function stepSnake() {
+    snakeDir = nextDir;
+    var head = { x: snake[0].x + snakeDir.x, y: snake[0].y + snakeDir.y };
+    if (head.x < 0 || head.x > 14 || head.y < 0 || head.y > 14 || snake.some(function (p) { return p.x === head.x && p.y === head.y; })) {
+      $('snakeMsg').textContent = 'Ops, hai toccato il bordo. Ricominciamo piano.'; startSnake(); return;
+    }
+    snake.unshift(head);
+    if (head.x === apple.x && head.y === apple.y) { foodIndex = (foodIndex + 1) % foods.length; newApple(); $('snakeMsg').textContent = 'Presa! Il serpentello si allunga ♡'; }
+    else snake.pop();
+    drawSnake();
+  }
+  function startSnake() {
+    clearInterval(snakeTimer); snake = [{ x: 7, y: 7 }, { x: 6, y: 7 }, { x: 5, y: 7 }];
+    snakeDir = { x: 1, y: 0 }; nextDir = { x: 1, y: 0 }; foodIndex = 0;
+    apple = { x: 10, y: 7 }; drawSnake();
+    snakeTimer = setInterval(stepSnake, 420);
+  }
+  function stopSnake() { clearInterval(snakeTimer); snakeTimer = null; if (snakeGame) snakeGame.hidden = true; if (snakeBtn) snakeBtn.textContent = 'Snake'; }
+  function snakeDirection(dir) {
+    var dirs = { up: { x: 0, y: -1 }, down: { x: 0, y: 1 }, left: { x: -1, y: 0 }, right: { x: 1, y: 0 } }, d = dirs[dir];
+    if (d && !(d.x === -snakeDir.x && d.y === -snakeDir.y)) nextDir = d;
+  }
+  snakeBtn.addEventListener('click', function () {
+    if (snakeGame.hidden) { closeGame(); organizeGame.hidden = true; organizeBtn.textContent = 'Metti in ordine'; closeExtraGames(); snakeGame.hidden = false; snakeBtn.textContent = 'Chiudi Snake'; $('snakeMsg').textContent = 'Raccogli le fragole. Usa le frecce o i pulsanti.'; startSnake(); }
+    else stopSnake();
+  });
+  document.querySelectorAll('[data-dir]').forEach(function (b) { b.addEventListener('click', function () { snakeDirection(this.getAttribute('data-dir')); }); });
+  window.addEventListener('keydown', function (e) { if (!snakeGame.hidden && /^Arrow/.test(e.key)) { e.preventDefault(); snakeDirection(e.key.replace('Arrow', '').toLowerCase()); } });
+
+  var colorBtn = $('colorBtn'), colorGame = $('colorGame'), jarBtn = $('jarBtn'), jarGame = $('jarGame');
+  var chosenPaint = '#FF8FB5';
+  function closeExtraGames() {
+    colorGame.hidden = true; jarGame.hidden = true;
+    colorBtn.textContent = 'Colora'; jarBtn.textContent = 'Barattolo';
+  }
+  function closeForExtra() {
+    closeGame(); organizeGame.hidden = true; organizeBtn.textContent = 'Metti in ordine'; stopSnake();
+  }
+  colorBtn.addEventListener('click', function () {
+    if (colorGame.hidden) { closeForExtra(); jarGame.hidden = true; jarBtn.textContent = 'Barattolo'; colorGame.hidden = false; colorBtn.textContent = 'Chiudi colora'; }
+    else { colorGame.hidden = true; colorBtn.textContent = 'Colora'; }
+  });
+  document.querySelectorAll('.paint').forEach(function (b) {
+    b.addEventListener('click', function () {
+      chosenPaint = this.getAttribute('data-paint');
+      document.querySelectorAll('.paint').forEach(function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+    });
+  });
+  document.querySelectorAll('.paintable').forEach(function (shape) {
+    shape.addEventListener('click', function () { this.style.fill = chosenPaint; });
+  });
+  var JAR_MESSAGES = [
+    'Ti voglio bene. Anche adesso.',
+    'Non devi fare tutto da sola.',
+    'Ti voglio bene, patata.',
+    'Respira: questo momento non definisce chi sei.',
+    'Sono qui con te se hai bisogno, Sofi.',
+    'Hai un sorriso bellissimo.',
+    'Hai degli occhi stupendi.',
+    'Puoi chiedere compagnia. Non disturbi nessuno.'
+  ];
+  jarBtn.addEventListener('click', function () {
+    if (jarGame.hidden) { closeForExtra(); colorGame.hidden = true; colorBtn.textContent = 'Colora'; jarGame.hidden = false; jarBtn.textContent = 'Chiudi barattolo'; }
+    else { jarGame.hidden = true; jarBtn.textContent = 'Barattolo'; }
+  });
+  $('openJar').addEventListener('click', function () { $('jarMessage').textContent = JAR_MESSAGES[Math.floor(Math.random() * JAR_MESSAGES.length)]; });
 
   function update() {
     var now = Date.now();
@@ -587,6 +836,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
     endAt = startAt + ms;
     phase = '';
     lastCheer = -1;
+    timerLoveEl.textContent = TIMER_LOVES[Math.floor(Math.random() * TIMER_LOVES.length)];
     nextIdea();
     show(run);
     update();
@@ -599,6 +849,11 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
     release();
     stopSound();
     closeGame();
+    stopSnake();
+    closeExtraGames();
+    clearTimeout(orderRestartTimer);
+    organizeGame.hidden = true;
+    organizeBtn.textContent = 'Metti in ordine';
   }
 
   function finish() {
